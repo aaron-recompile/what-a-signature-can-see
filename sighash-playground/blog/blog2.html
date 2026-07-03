@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>When Two Signatures Collide</title>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--fg:#e6edf3;--dim:#8b949e;--accent:#58a6ff;--seen:#2ea043;--pink:#db61a2}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:17px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif}
+.topbar{position:sticky;top:0;background:rgba(13,17,23,.9);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);padding:11px 20px;font-size:14px}
+.topbar a{color:var(--accent);text-decoration:none} .topbar a:hover{text-decoration:underline}
+main{max-width:760px;margin:0 auto;padding:34px 22px 100px}
+h1{font-size:30px;line-height:1.25;margin:8px 0 18px}
+h2{font-size:22px;margin:44px 0 14px;padding-top:22px;border-top:1px solid var(--line)}
+h3{font-size:18px;margin:30px 0 10px}
+h1+*,h2+*{margin-top:0}
+p,li{color:#c9d1d9} strong,b{color:var(--fg)}
+a{color:var(--accent)} a:hover{text-decoration:underline}
+blockquote{margin:18px 0;padding:6px 18px;border-left:3px solid var(--accent);
+  background:#12182080;color:var(--dim);border-radius:0 6px 6px 0}
+blockquote strong{color:var(--fg)}
+code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-size:.88em;
+  background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+pre{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:14px 16px;overflow:auto}
+pre code{background:none;border:0;padding:0;font-size:13px;line-height:1.55}
+table{border-collapse:collapse;margin:16px 0;font-size:14.5px;display:block;overflow:auto}
+th,td{border:1px solid var(--line);padding:7px 11px;text-align:left;vertical-align:top}
+th{background:var(--panel);color:var(--fg)}
+hr{border:0;border-top:1px solid var(--line);margin:34px 0}
+img{max-width:100%}
+em{color:#c9d1d9}
+ul,ol{padding-left:24px}
+.foot{color:var(--dim);font-size:13px;margin-top:40px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<div class="topbar">← <a href="../../">What a Signature Can See · 签名能看见什么</a></div>
+<main>
+<h1 id="when-two-signatures-collide">When Two Signatures Collide</h1>
+<h3
+id="two-parties-two-sighash-flags-one-transaction-we-made-them-fight-on-inquisition-signet-and-let-the-node-judge">Two
+parties, two sighash flags, one transaction. We made them fight on
+Inquisition signet and let the node judge.</h3>
+<hr />
+<p>In the <a href="./blog1_what_a_signature_signs.md">previous post</a>
+we saw that a Bitcoin signature doesn't sign the transaction — it signs
+a <em>message</em>, assembled from only the fields its sighash flag
+chooses to see. Everything left blind, anyone can change.</p>
+<p>That raises a sharp question the moment more than one party is
+involved:</p>
+<blockquote>
+<p>If each signature only commits to <em>its own</em> view of the
+transaction, what happens when two parties in the same transaction pick
+<strong>incompatible</strong> views?</p>
+</blockquote>
+<p>Do they conflict? Can the transaction still be built? We didn't want
+to argue it on a whiteboard. We built it on <strong>Inquisition
+signet</strong> and asked the node — with
+<code>testmempoolaccept</code>, which returns Bitcoin Core's own verdict
+(<code>allowed</code> / rejected + the exact reason), no
+hand-waving.</p>
+<p>Here's the mental model the experiments confirm.</p>
+<h2 id="signatures-dont-negotiate-they-intersect">Signatures don't
+negotiate. They intersect.</h2>
+<p>Each signature carves out a <strong>set of final transactions it will
+accept</strong>: the fields it <em>sees</em> are pinned to fixed values;
+the fields it leaves <em>blind</em> can be anything. Put two parties in
+one transaction and the valid transaction must lie in the
+<strong>intersection</strong> of both their accepted sets.</p>
+<ul>
+<li><strong>Intersection non-empty</strong> → a transaction exists that
+satisfies both → the node accepts. <em>Cooperation.</em></li>
+<li><strong>Intersection empty</strong> → no such transaction exists →
+the node rejects. <em>Conflict.</em></li>
+</ul>
+<p>And crucially: the two inputs never read each other's flags. They
+only both touch the <em>shared transaction</em>. A conflict is not two
+parties arguing — it's two commitments to the same field that can't both
+be true at once.</p>
+<p>We ran three collisions.</p>
+<h2 id="collision-1--same-field-two-values--deadlock">Collision 1 — same
+field, two values → deadlock</h2>
+<p>Alice signs <code>SIGHASH_ALL</code> believing the outputs are
+<strong>O1</strong> (all funds to her). Bob signs
+<code>SIGHASH_ALL</code> believing the outputs are <strong>O2</strong>
+(all funds to him). Now try to assemble the final transaction:</p>
+<ul>
+<li>Build it with outputs <strong>O1</strong> → Bob's signature was over
+O2 → invalid.</li>
+<li>Build it with outputs <strong>O2</strong> → Alice's signature was
+over O1 → invalid.</li>
+</ul>
+<p>There is no output set that satisfies both. The node, on both
+assemblies:</p>
+<pre><code>allowed = false
+reject-reason: mempool-script-verify-flag-failed (Invalid Schnorr signature)</code></pre>
+<p>Two <code>SIGHASH_ALL</code> signatures over different bills = empty
+intersection = a transaction that <strong>cannot be built</strong>. This
+is the base case of conflict, and the node states it flatly.</p>
+<h2 id="collision-2--offered-freedom-quietly-revoked">Collision 2 —
+offered freedom, quietly revoked</h2>
+<p>This one is subtler and more real. Alice signs
+<code>ALL | ANYONECANPAY</code> — "anyone can add inputs, I only commit
+to my own." She is <em>offering freedom</em>: others may join and pay.
+Bob signs plain <code>SIGHASH_ALL</code> — which commits to the
+<strong>entire input set</strong> as it stood when he signed.</p>
+<ul>
+<li>With exactly <code>{Alice, Bob}</code> as inputs → both valid →
+<strong>accepted</strong>.</li>
+<li>Now Carol actually <em>uses</em> Alice's offered freedom and adds
+herself as a third input. Alice's <code>ANYONECANPAY</code> signature
+doesn't care (she only committed to her own input) — but Bob's
+<code>SIGHASH_ALL</code> was over <code>{Alice, Bob}</code>, and the
+input set is now <code>{Alice, Bob, Carol}</code>:</li>
+</ul>
+<pre><code>allowed = false
+reject-reason: mempool-script-verify-flag-failed (Invalid Schnorr signature)</code></pre>
+<p>Bob's signature shatters. <strong>The freedom Alice offered was only
+real as long as nobody else locked the input set.</strong> The instant
+one party commits to "all inputs," the door another party held open
+slams shut — using it destroys the transaction. (Control: when
+<em>both</em> Alice and Bob use <code>ANYONECANPAY</code>, Carol joins
+fine → accepted. So the rejection is provably Bob's <code>ALL</code>,
+nothing else.)</p>
+<p>This is the exact texture of multi-party PSBT flows: the party who
+signs "all inputs" must sign <strong>last</strong>, or watch their
+signature die every time the input set changes.</p>
+<h2 id="collision-3--a-covenant-vs-a-spenders-intent">Collision 3 — a
+covenant vs. a spender's intent</h2>
+<p>Sighash is one way to fix a field. A <strong>covenant</strong> is
+another — and it can collide too. We locked a coin with
+<code>OP_CHECKTEMPLATEVERIFY</code> (CTV): the covenant fixes the
+outputs of the <em>next</em> spend to an exact template T ("50000 − fee
+to address X, one input, one output").</p>
+<ul>
+<li>Spend it exactly as T → <strong>accepted</strong>.</li>
+<li>Spend it to a <em>different</em> recipient (address Y) → the
+covenant and the spender's intent have empty intersection:</li>
+</ul>
+<pre><code>allowed = false
+reject-reason: mempool-script-verify-flag-failed
+              (Script failed an OP_CHECKTEMPLATEVERIFY operation)</code></pre>
+<ul>
+<li>Spend it with a <em>different amount</em> → same rejection.</li>
+</ul>
+<p>The covenant nails the "where the money goes" cell shut at funding
+time. Any spender who wants it elsewhere is refused — and the opcode
+names itself in the rejection. This is a covenant-vs-party conflict: the
+coin's issuer pre-committed one field, and no later signature can
+un-commit it.</p>
+<h2 id="conflict-is-sometimes-exactly-the-point">Conflict is sometimes
+exactly the point</h2>
+<p>It's tempting to read "conflict" as failure. It isn't. The base case
+(Collision 1) is the machinery behind <strong>atomic swaps</strong>: a
+buyer who tries to take the goods without paying must build a
+transaction missing the seller's payment output — but the seller's
+<code>SINGLE | ANYONECANPAY</code> signature commits to <em>exactly that
+output</em>. Empty intersection → the theft can't be assembled → goods
+and money move together or not at all. The conflict <em>is</em> the lock
+that makes trustless swaps work.</p>
+<h2 id="the-receipts">The receipts</h2>
+<p>All verdicts are Bitcoin Core's own, via
+<code>testmempoolaccept</code>, on Inquisition signet. The two
+cooperating cases we also broadcast, as permanent on-chain
+artifacts:</p>
+<ul>
+<li><strong>Two-party cooperation</strong> (both <code>ALL</code>,
+compatible outputs):
+<code>5ec7a5244454f00200224f06290d084150c597109cff119e86196be968aab2ba</code></li>
+<li><strong>Covenant satisfied</strong> (CTV spend matching template):
+<code>a346a1c892a53dca4e6cea287337e14811f313eec04d37b13435a53b2e66ca29</code></li>
+</ul>
+<p>The full runnable lab — <code>run_A_sighash.py</code> (two-party
+sighash) and <code>run_B_covenant.py</code> (CTV) — reproduces every
+verdict against a live node.</p>
+<hr />
+<p>So: two signatures in one transaction don't bargain. They
+<strong>intersect</strong>. Land inside the overlap and the node
+accepts; land outside it and the node refuses — sometimes because two
+parties wanted the same field to be two things, sometimes because one
+party's covenant already spoke for it. The conditions of a Bitcoin
+payment are the sum of what every signature can see — and a conflict is
+just two of those views, touching the same cell, disagreeing.</p>
+<hr />
+<p><em>Sequel to "What a Bitcoin Signature Actually Signs." Both
+accompany the book <strong>What a Signature Can See</strong>. Play with
+the sighash dials: <a href="../index.html"><code>index.html</code></a>.
+Reproduce the collisions: the sighash-conflict lab on Inquisition
+signet.</em></p>
+
+<div class="foot">Part of <a href="../../">What a Signature Can See</a> · try the <a href="../../sighash-playground/">interactive playground</a>.</div>
+</main>
+</body>
+</html>

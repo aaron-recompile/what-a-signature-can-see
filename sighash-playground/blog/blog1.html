@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>What a Bitcoin Signature Actually Signs</title>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--fg:#e6edf3;--dim:#8b949e;--accent:#58a6ff;--seen:#2ea043;--pink:#db61a2}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:17px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif}
+.topbar{position:sticky;top:0;background:rgba(13,17,23,.9);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);padding:11px 20px;font-size:14px}
+.topbar a{color:var(--accent);text-decoration:none} .topbar a:hover{text-decoration:underline}
+main{max-width:760px;margin:0 auto;padding:34px 22px 100px}
+h1{font-size:30px;line-height:1.25;margin:8px 0 18px}
+h2{font-size:22px;margin:44px 0 14px;padding-top:22px;border-top:1px solid var(--line)}
+h3{font-size:18px;margin:30px 0 10px}
+h1+*,h2+*{margin-top:0}
+p,li{color:#c9d1d9} strong,b{color:var(--fg)}
+a{color:var(--accent)} a:hover{text-decoration:underline}
+blockquote{margin:18px 0;padding:6px 18px;border-left:3px solid var(--accent);
+  background:#12182080;color:var(--dim);border-radius:0 6px 6px 0}
+blockquote strong{color:var(--fg)}
+code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-size:.88em;
+  background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+pre{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:14px 16px;overflow:auto}
+pre code{background:none;border:0;padding:0;font-size:13px;line-height:1.55}
+table{border-collapse:collapse;margin:16px 0;font-size:14.5px;display:block;overflow:auto}
+th,td{border:1px solid var(--line);padding:7px 11px;text-align:left;vertical-align:top}
+th{background:var(--panel);color:var(--fg)}
+hr{border:0;border-top:1px solid var(--line);margin:34px 0}
+img{max-width:100%}
+em{color:#c9d1d9}
+ul,ol{padding-left:24px}
+.foot{color:var(--dim);font-size:13px;margin-top:40px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<div class="topbar">← <a href="../../">What a Signature Can See · 签名能看见什么</a></div>
+<main>
+<h1 id="what-a-bitcoin-signature-actually-signs">What a Bitcoin
+Signature Actually Signs</h1>
+<h3
+id="you-dont-sign-the-transaction-you-sign-a-message-you-assemble-yourself--and-the-fields-you-leave-out-anyone-can-change">You
+don't sign the transaction. You sign a message you assemble yourself —
+and the fields you leave out, anyone can change.</h3>
+<hr />
+<p>Ask a Bitcoin developer "what does a signature sign?" and most will
+say: <em>the transaction.</em></p>
+<p>They can't. When you sign an input, the transaction isn't finished —
+its txid depends on the very signatures you haven't made yet. You cannot
+sign a thing that doesn't exist. So what <em>do</em> you sign?</p>
+<p>You sign a <strong>message</strong>. A specific, deterministic byte
+string, assembled out of <em>some</em> of the transaction's fields — the
+ones your <strong>sighash flag</strong> tells the protocol to include.
+In Taproot that message is the BIP-341 <code>TapSighash</code>. This
+message is the most important object in Bitcoin that almost nobody has
+looked at byte by byte. There's very little written about it, and even
+less code that just <em>prints it out</em>. So let's print it out.</p>
+<p>We built two things to go with this post:</p>
+<ul>
+<li>a <strong>playground</strong> — flip the sighash dials in your
+browser and watch the fields light up or grey out, with the real digest
+recomputed live: <a
+href="../index.html"><code>index.html</code></a></li>
+<li>a <strong>field printer</strong> — <a
+href="../print_sighash_fields.py"><code>print_sighash_fields.py</code></a>,
+a self-contained Python script that assembles the message by hand and
+cross-checks every byte against <code>bitcoinutils</code>.</li>
+</ul>
+<p>Everything below is real output from that script.</p>
+<hr />
+<h2 id="the-message-for-a-single-input">The message, for a single
+input</h2>
+<p>Here is a plain 1-input, 1-output Taproot spend, signed with
+<code>SIGHASH_ALL</code>. This is the entire message your key puts its
+signature on:</p>
+<pre><code>👁 epoch              00
+👁 hash_type          01
+👁 nVersion           02000000
+👁 nLockTime          00000000
+👁 sha_prevouts       d60f3f6d…857d5f25   ← hash of ALL inputs&#39; outpoints
+👁 sha_amounts        184c0ede…b33b0270   ← hash of ALL inputs&#39; amounts
+👁 sha_scriptpubkeys  ba8a81ed…32421077   ← hash of ALL inputs&#39; locking scripts
+👁 sha_sequences      ad95131b…367bfd0e   ← hash of ALL inputs&#39; sequences
+👁 sha_outputs        af4d5d75…5c0b791f   ← hash of ALL outputs (the whole bill)
+👁 spend_type         00
+👁 input_index        00000000
+
+TapSighash = 63e5c52ee032870b76d1e127767f4e8a0e388bbb336d048ffa3af02440a91c5d</code></pre>
+<p>That digest is what gets signed. Notice what's in here:
+<strong>commitments to every input and every output of the
+transaction.</strong> With <code>SIGHASH_ALL</code>, your signature
+nails the whole thing down. Change any output, add any input — the
+digest changes, and your signature is instantly invalid.</p>
+<p>Think of the message as a <strong>paper strip</strong> of labeled
+cells. Signing is pressing your thumbprint over the cells you're willing
+to <em>see</em>. <code>SIGHASH_ALL</code> = you read the whole
+strip.</p>
+<h2 id="the-flag-is-a-dial-that-greys-out-cells">The flag is a dial that
+greys out cells</h2>
+<p>Here's the same input, same transaction, signed with
+<code>SINGLE | ANYONECANPAY</code> instead:</p>
+<pre><code>👁 epoch              00
+👁 hash_type          83
+👁 nVersion           02000000
+👁 nLockTime          00000000
+🙈 sha_prevouts       (BLIND) ← ANYONECANPAY: you no longer see the other inputs
+🙈 sha_amounts        (BLIND)
+🙈 sha_scriptpubkeys  (BLIND)
+🙈 sha_sequences      (BLIND)
+🙈 sha_outputs        (BLIND) ← SINGLE: you don&#39;t commit to the whole output list
+👁 spend_type         00
+👁 outpoint           aaaa…aaaa 00000000  ← instead: just MY own input
+👁 amount             a086010000000000
+👁 scriptPubKey       225120…111111
+👁 nSequence          ffffffff
+👁 sha_single_output  af4d5d75…5c0b791f   ← only the ONE output paired with me
+
+TapSighash = 7d193bd7c955f721d4757831b080b833a775dfd476882a438b69b745cbae53e4</code></pre>
+<p>Same transaction. Completely different message, completely different
+digest. The flag didn't change <em>what the transaction is</em> — it
+changed <strong>what your signature looked at</strong>. The greyed-out
+(<code>🙈</code>) cells are the fields you left <strong>blind</strong>.
+And here is the whole point:</p>
+<blockquote>
+<p><strong>A field you didn't sign is a field anyone can change after
+you sign — without breaking your signature.</strong></p>
+</blockquote>
+<p><code>ANYONECANPAY</code> blinded the "all inputs" cells → so other
+people can add their own inputs to this transaction and your signature
+still verifies. <code>SINGLE</code> blinded the output list → so other
+output rows can be added or reordered; you only locked the one paired
+with your input.</p>
+<p>Blind is not a bug. Blind is a <em>feature you are choosing</em>: "I
+don't care about this part; someone else can fill it in later."</p>
+<h2 id="two-dials-six-flags--the-whole-space">Two dials, six flags — the
+whole space</h2>
+<p>There are only two independent choices, and each is a real
+field-group in the message:</p>
+<ul>
+<li><strong>INPUT dial</strong> — do I commit to <em>all</em> inputs, or
+<em>only mine</em>? <code>default</code> (all) vs
+<code>ANYONECANPAY</code> (only mine). This is the
+<code>sha_prevouts / sha_amounts / sha_scriptpubkeys / sha_sequences</code>
+block appearing or being replaced by <em>this input's</em> own
+outpoint/amount/script/sequence.</li>
+<li><strong>OUTPUT dial</strong> — do I commit to <em>all</em> outputs,
+<em>none</em>, or <em>only my paired row</em>? <code>ALL</code> /
+<code>NONE</code> / <code>SINGLE</code>. This is
+<code>sha_outputs</code> present, absent, or replaced by
+<code>sha_single_output</code>.</li>
+</ul>
+<p>Two input-modes × three output-modes = <strong>six flags</strong>.
+That's the entire sighash matrix, and now you can see it's not six facts
+to memorize — it's two dials:</p>
+<pre><code>                 OUT: ALL          OUT: NONE         OUT: SINGLE
+ IN: all         SIGHASH_ALL       SIGHASH_NONE      SIGHASH_SINGLE
+ IN: only-mine   ALL|ANYONECANPAY  NONE|ANYONECANPAY SINGLE|ANYONECANPAY</code></pre>
+<p>Why does the input dial have only two positions while the output dial
+has three? Because your signature is <em>for</em> the input you're
+spending — you can never blind yourself to your own coin. The minimum is
+"at least mine." Outputs carry no such anchor, so they get a full "none"
+position. (There's no <code>SIGHASH_NONE</code>-for-inputs; it's
+structurally impossible.)</p>
+<p>These corners aren't academic. They're how real protocols are
+built:</p>
+<ul>
+<li><strong><code>ALL</code></strong> — the default. Lock
+everything.</li>
+<li><strong><code>ALL | ANYONECANPAY</code></strong> — crowdfunding /
+assurance contracts. "The goal output is fixed; anyone can add
+money."</li>
+<li><strong><code>SINGLE | ANYONECANPAY</code></strong> — the classic
+Ordinals / PSBT atomic swap. The seller signs <em>only</em> "my
+inscription goes in, my price comes out" and leaves everything else
+blind for the buyer to fill.</li>
+</ul>
+<h2 id="multi-input-this-is-where-it-gets-interesting">Multi-input: this
+is where it gets interesting</h2>
+<p>With one input there's nobody else at the table. Add a second input —
+now two parties are co-signing one transaction, and the "all inputs"
+block (<code>sha_prevouts</code> and friends) is exactly the machinery
+by which one input's signature <em>reaches across</em> to commit to the
+others.</p>
+<p>Sign input 0 of a 2-input transaction with
+<code>SIGHASH_ALL</code>:</p>
+<pre><code>sha_prevouts = d9ade445…b554b6c3a8   ← this now hashes BOTH inputs&#39; outpoints
+TapSighash(in0, ALL) = 781880953371345bbb9922cf0bb2e3aabaecb53ead5261c2a9ef784748137465</code></pre>
+<p>Flip on <code>ANYONECANPAY</code> and that <code>sha_prevouts</code>
+cell goes blind — input 0's signature stops caring who else is in the
+transaction. This single bit is the difference between "I'm locking
+exactly who pays" and "others can join." It is the entire basis of how
+independent parties cooperate — or collide — inside one Bitcoin
+transaction. (That collision has its own post: what happens when two
+inputs pick <em>incompatible</em> flags, proven on signet, is the sequel
+to this one.)</p>
+<h2 id="go-press-the-dials-yourself">Go press the dials yourself</h2>
+<p>Reading about it is one thing. Open <a href="../index.html">the
+playground</a>, flip <code>ANYONECANPAY</code>, and <em>watch</em> the
+four input-commitment cells grey out and the digest jump. Switch
+<code>ALL → SINGLE</code> and watch the output commitment collapse to a
+single row. The page computes real BIP-341 in your browser
+(self-contained SHA-256, no network) and self-tests its digests against
+the <code>bitcoinutils</code>-verified values — so what you see is real,
+not a cartoon.</p>
+<p>Then read <a
+href="../print_sighash_fields.py"><code>print_sighash_fields.py</code></a>
+— 150 lines that assemble the message by hand and prove, byte for byte,
+that they match a production library. Once you've seen the message
+printed out, "what does a signature sign?" stops being a mystery and
+becomes a thing you can hold.</p>
+<p>A Bitcoin signature doesn't sign the transaction. It signs a message
+you assemble — and everything you leave blind, you leave to someone
+else.</p>
+<hr />
+<p><em>This is a companion to the book <strong>What a Signature Can
+See</strong> — a Feynman-style walk from a dinner table to the exact
+edge of what a signature can commit to. Code and playground:
+[github/...]. Built and byte-verified on Bitcoin Inquisition
+signet.</em></p>
+
+<div class="foot">Part of <a href="../../">What a Signature Can See</a> · try the <a href="../../sighash-playground/">interactive playground</a>.</div>
+</main>
+</body>
+</html>

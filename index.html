@@ -23,6 +23,17 @@
   h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:34px 0 10px;border-top:1px solid var(--line);padding-top:22px}
   a.lnk{color:var(--accent);text-decoration:none} a.lnk:hover{text-decoration:underline}
   .reading{color:var(--dim);font-size:14px;line-height:2}
+  .author{display:flex;gap:20px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-top:34px}
+  @media(max-width:520px){.author{flex-direction:column;text-align:center}}
+  .author img{width:96px;height:96px;border-radius:50%;flex:0 0 96px;border:1px solid var(--line)}
+  .author .label{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin:0 0 4px}
+  .author .name{font-size:20px;font-weight:700;margin:0 0 8px}
+  .author .line{margin:2px 0;color:var(--dim);font-size:14px}
+  .author .social{display:flex;gap:10px;margin-top:14px}
+  @media(max-width:520px){.author .social{justify-content:center}}
+  .author .social a{width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:8px;color:var(--fg)}
+  .author .social a:hover{border-color:var(--accent);color:var(--accent)}
+  .author .social svg{width:18px;height:18px;fill:currentColor}
   .foot{color:var(--dim);font-size:13px;margin-top:34px;border-top:1px solid var(--line);padding-top:16px}
 </style>
 </head>
@@ -59,6 +70,21 @@
     <a class="lnk" href="https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki">BIP-143</a> ·
     runs on <a class="lnk" href="https://github.com/bitcoin-inquisition/bitcoin">Bitcoin Inquisition</a>
   </div>
+
+  <section class="author">
+    <img src="./aaron-profile.png" width="96" height="96" alt="Aaron Zhang" loading="lazy"/>
+    <div>
+      <p class="label">About</p>
+      <p class="name">Aaron Zhang</p>
+      <p class="line">Author of <a class="lnk" href="https://leanpub.com/mastering-taproot" target="_blank" rel="noopener noreferrer">Mastering Taproot</a>.</p>
+      <p class="line">Bitcoin Developer, Educator and Investor.</p>
+      <div class="social">
+        <a href="https://github.com/aaron-recompile" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg></a>
+        <a href="https://medium.com/@aaron.recompile" target="_blank" rel="noopener noreferrer" aria-label="Medium" title="Medium"><svg viewBox="0 0 28 24" aria-hidden="true"><path d="M13.54 12a6.8 6.8 0 01-6.77 6.82A6.8 6.8 0 010 12a6.8 6.8 0 016.77-6.82A6.8 6.8 0 0113.54 12zM20.96 12c0 3.54-1.77 6.41-3.94 6.41S13.1 15.54 13.1 12s1.75-6.41 3.93-6.41 3.93 2.87 3.93 6.41zm5.54 0c0 3.17-.53 5.75-1.19 5.75-.66 0-1.19-2.58-1.19-5.75s.53-5.75 1.19-5.75C25.97 6.25 26.5 8.83 26.5 12z"/></svg></a>
+        <a href="https://x.com/aaron_recompile" target="_blank" rel="noopener noreferrer" aria-label="X (Twitter)" title="X"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+      </div>
+    </div>
+  </section>
 
   <div class="foot">Byte-verified against <span style="font-family:monospace">bitcoinutils</span> (18/18 sighash digests match). Text © the author · code MIT.</div>
 </div>

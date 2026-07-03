@@ -349,6 +349,66 @@ sighash 矩阵（玩完了，学真名）</h2>
 <p>这张 2×3，就是 Aaron 最早问"sighash
 的格子算原创吗"那张矩阵的底座；纸条游戏和论文里那张图，是同一张桌子。</p>
 </blockquote>
+<h3 id="-进阶那个缺的第三档apo以及一个极易混的命名坑">★
+进阶：那个"缺的第三档"——APO，以及一个极易混的命名坑</h3>
+<p>上面说"进那头没有'全蒙'(NONE) 这一档"——<strong>标准 sighash
+确实给不了。但它有一个后来补上的第三档，叫
+APO（<code>SIGHASH_ANYPREVOUT</code>）。</strong></p>
+<p><strong>先拆一个害人的命名坑</strong>（很多人栽在这，因为两个都带
+"ANY"）：</p>
+<ul>
+<li><strong>ANYONECANPAY</strong>（any-one-can-pay）=
+"别人能加输入"。管的是<strong>别的输入</strong>。哪怕用了它，<strong>你自己那枚币仍被钉死</strong>——你签的还是"我在花<em>这一枚</em>"。</li>
+<li><strong>ANYPREVOUT</strong>（APO）= "我的签名接受<em>任意</em>
+prevout"。管的是<strong>你自己那枚币的身份</strong>——连"我花的是哪枚"都蒙掉，所以同一个签名能重绑到别的
+UTXO（Eltoo）。</li>
+</ul>
+<p>两个都带
+"ANY"，但一个说"别人可加"，一个说"我自己那枚也不认"。<strong>别混。</strong></p>
+<p><strong>而 APO 正好补齐了对称</strong>——把 2×3 变成 3×3：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>输出侧</th>
+<th>输入侧</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ALL</strong></td>
+<td>认所有输出</td>
+<td>认所有输入（默认）</td>
+</tr>
+<tr>
+<td><strong>SINGLE</strong></td>
+<td>只认我那行</td>
+<td>只认我自己那个输入（<strong>ANYONECANPAY</strong>）</td>
+</tr>
+<tr>
+<td><strong>NONE</strong></td>
+<td>不认任何输出</td>
+<td>不认任何输入身份（<strong>APO</strong>，需 BIP-118）</td>
+</tr>
+</tbody>
+</table>
+<p>看出来没：<strong>ANYONECANPAY 其实对应
+SINGLE</strong>（都是"只认跟我有关的那一个"），<strong>APO 对应
+NONE</strong>（彻底不认）。所以矩阵本该是对称的 <strong>3×3 = 9
+种</strong>：上面 2 行 = 你玩过的 6 种，第 3 行（APO）= 补上的。</p>
+<p><strong>两颗星（别过度简化）：</strong></p>
+<ol type="1">
+<li>第 3 行不是"同一个旋钮多一档"——标准 sighash 表达不了，得<strong>新加
+flag（0x41）+ 33 字节新公钥 +
+改共识</strong>才做得出。这正是"你不能蒙住自己正在花的币"那条规则的<strong>唯一破例</strong>：APO
+就是把那个"结构上做不到"的第三档硬解锁的东西。</li>
+<li>APO 那一行还分两深浅：<code>ANYPREVOUT</code> 蒙掉 prevout 但仍认
+script/金额；<code>ANYPREVOUTANYSCRIPT</code> 连
+script/金额也蒙。严格数比 9 还多。</li>
+</ol>
+<p>一句话：<strong>输出 3 档、输入本该也 3 档；第 3 档（APO = 输入的
+NONE）标准 sighash 给不了，得靠新公钥 + 改共识补——这就是 APO 为什么"在 6
+种之外"，也是它为什么要动共识。</strong></p>
 <hr />
 <h2 id="五给爸爸的小抄一页速查">五、给爸爸的小抄（一页速查）</h2>
 <table>

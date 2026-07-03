@@ -1,0 +1,13 @@
+# internal planning / strategy — NOT for publication
+_internal/
+
+# obsidian vault config + macOS cruft (this folder lives inside a vault)
+.obsidian/
+.DS_Store
+
+# python cache
+__pycache__/
+*.pyc
+
+# experiment state (regenerated locally)
+sighash-playground/.state_*.json

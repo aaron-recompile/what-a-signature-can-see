@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>What a Signature Can See — the SIGHASH playground</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --line:#30363d; --fg:#e6edf3; --dim:#8b949e;
+    --seen:#2ea043; --blind:#6e7681; --accent:#58a6ff; --warn:#d29922; --pink:#db61a2;
+    --c-ver:#8b949e; --c-outpoint:#58a6ff; --c-amount:#e3b341; --c-spk:#bc8cff;
+    --c-seq:#39c5cf; --c-ospk:#3fb950;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  code,.mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+  .wrap{max-width:1160px;margin:0 auto;padding:22px 18px 80px}
+  h1{font-size:22px;margin:0 0 4px} h1 .cn{color:var(--dim);font-size:15px;font-weight:400}
+  .sub{color:var(--dim);margin:0 0 18px;max-width:900px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:0 0 12px}
+  label{color:var(--dim);font-size:12px}
+  /* controls */
+  .ctl{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:4px}
+  .seg button{background:transparent;color:var(--fg);border:0;padding:7px 12px;cursor:pointer;font-size:13px}
+  .seg button.on{background:var(--accent);color:#0d1117;font-weight:600}
+  .toggle{display:inline-flex;align-items:center;gap:8px} .toggle input{transform:scale(1.25)}
+  .flag{font-size:15px;font-weight:700;color:var(--accent)}
+  .legend{margin-left:auto;color:var(--dim);font-size:12px}
+  .legend b.see{color:var(--seen)} .legend b.blind{color:var(--pink)}
+  /* two cols */
+  .cols{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}
+  @media(max-width:880px){.cols{grid-template-columns:1fr}}
+  /* transaction view (Sparrow-style) */
+  .txrow{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
+  .card{border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin:8px 0}
+  .card.me{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .card .ttl{font-size:12px;color:var(--dim);margin-bottom:6px}
+  .card .ttl .me-tag{color:var(--accent);font-weight:700}
+  .chip{border-left:3px solid var(--line);background:#1b222b;border-radius:5px;padding:5px 9px;font-size:12px;min-width:120px}
+  .chip .k{color:var(--dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em}
+  .chip .v{color:var(--fg)} .chip .v.mono{font-size:11.5px}
+  .chip.see{background:#12261a}
+  .chip.f-ver{border-left-color:var(--c-ver)} .chip.f-outpoint{border-left-color:var(--c-outpoint)}
+  .chip.f-amount{border-left-color:var(--c-amount)} .chip.f-spk{border-left-color:var(--c-spk)}
+  .chip.f-seq{border-left-color:var(--c-seq)} .chip.f-ospk{border-left-color:var(--c-ospk)}
+  .chip.blind{opacity:.4;background:#161b22}
+  .chip.blind .v{text-decoration:line-through;color:var(--dim)}
+  .chip .st{float:right;font-size:9.5px;font-weight:700;border-radius:4px;padding:1px 5px;margin-left:6px}
+  .chip.see .st{background:var(--seen);color:#04120a} .chip.blind .st{background:var(--blind);color:#0d1117}
+  .subttl{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 2px}
+  /* message (preimage) */
+  .field{display:flex;gap:9px;align-items:flex-start;padding:6px 7px;border-radius:6px;margin:2px 0}
+  .field.seen{background:#12261a} .field.blind{opacity:.45}
+  .badge{flex:0 0 40px;text-align:center;font-size:10px;font-weight:700;border-radius:4px;padding:3px 0}
+  .badge.seen{background:var(--seen);color:#04120a} .badge.blind{background:var(--blind);color:#0d1117}
+  .fname{flex:0 0 150px} .fname b{color:var(--fg);font-size:12px} .fname .cn{color:var(--dim);font-size:10.5px;display:block}
+  .fhex{flex:1;color:var(--dim);word-break:break-all;font-size:10.5px}
+  .field.blind .fhex{text-decoration:line-through}
+  .fold{color:var(--warn);font-size:10.5px;margin-top:1px}
+  .digest{margin-top:10px;padding:11px;border:1px dashed var(--accent);border-radius:8px}
+  .digest .h{color:var(--dim);font-size:12px} .digest .v{color:var(--accent);word-break:break-all;font-size:12.5px;margin-top:4px}
+  .change li{margin:4px 0} .change .lock{color:var(--seen)} .change .open{color:var(--pink)}
+  table.mtx{border-collapse:collapse;margin-top:6px;font-size:11.5px}
+  table.mtx td,table.mtx th{border:1px solid var(--line);padding:5px 8px;text-align:center;color:var(--dim)}
+  table.mtx td.here{background:var(--accent);color:#0d1117;font-weight:700}
+  .selftest{font-size:11.5px;margin-top:12px;color:var(--dim)} .ok{color:var(--seen)} .bad{color:#f85149}
+  .tbtn{float:right;background:transparent;border:1px solid var(--line);color:var(--dim);border-radius:5px;padding:1px 8px;font-size:11px;cursor:pointer}
+  .tbtn:hover{border-color:var(--warn);color:var(--warn)}
+  .tamper{border-radius:8px;padding:10px 12px;margin:0 0 12px;font-size:12.5px}
+  .tamper.ok{background:#12261a;border:1px solid #1c3a29} .tamper.bad{background:#2b1416;border:1px solid #5c1e22}
+  .tamper .tw b{color:var(--fg)} .tamper .td{color:var(--dim);font-size:11px;margin-top:2px} .tamper .tv{margin-top:7px;font-weight:600}
+  .tamper.ok .tv{color:var(--seen)} .tamper.bad .tv{color:#f85149}
+  .foot{color:var(--dim);font-size:12px;margin-top:20px;border-top:1px solid var(--line);padding-top:12px}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>What a Signature Can See <span class="cn">· 签名能看见什么 · the SIGHASH playground</span></h1>
+  <p class="sub">Here is a whole Bitcoin transaction, laid out field by field (Sparrow-style). A signature does not
+  cover all of it. Your <b>sighash flag</b> decides which fields the signature <b style="color:var(--seen)">SEES (看)</b>
+  — commits to — and which it leaves <b style="color:var(--pink)">BLIND (蒙)</b>. Blind fields can be changed by anyone
+  after you sign. Flip the dials and watch the transaction grey out. The 32-byte digest on the right is the real
+  message your key signs.</p>
+
+  <!-- controls -->
+  <div class="panel ctl">
+    <div><label>Example</label><br/>
+      <div class="seg" id="segEx"><button data-ex="1" class="on">single-input</button><button data-ex="2">two-input</button></div>
+    </div>
+    <div id="whichInputWrap" style="display:none"><label>Signing which input?</label><br/>
+      <div class="seg" id="segIn"><button data-in="0" class="on">input 0</button><button data-in="1">input 1</button></div>
+    </div>
+    <div><label>OUTPUT dial</label><br/>
+      <div class="seg" id="segOut"><button data-out="1" class="on">ALL</button><button data-out="2">NONE</button><button data-out="3">SINGLE</button></div>
+    </div>
+    <div><label>INPUT dial</label><br/>
+      <div class="toggle"><input type="checkbox" id="acp"/><span>ANYONECANPAY</span></div>
+    </div>
+    <div><label>flag</label><br/><span class="flag" id="flagName">SIGHASH_ALL</span> <span class="mono" id="flagHex" style="color:var(--dim)">0x01</span></div>
+    <div class="legend"><b class="see">SEE 看</b> = committed (change it → signature dies) · <b class="blind">BLIND 蒙</b> = not committed (anyone can change it)</div>
+  </div>
+
+  <div class="cols">
+    <!-- LEFT: the transaction -->
+    <div class="panel">
+      <h2>The transaction — colored &amp; annotated, with your flag applied</h2>
+      <p style="color:var(--dim);font-size:12px;margin:0 0 8px">Hit <b style="color:var(--warn)">✎ tamper</b> on any field to see what happens if someone changes it <i>after you sign</i>, under the current flag.</p>
+      <div id="tamperBox"></div>
+      <div id="txView"></div>
+      <div class="subttl" style="margin-top:14px">where you are on the 2×3 matrix</div>
+      <table class="mtx" id="matrix"></table>
+    </div>
+    <!-- RIGHT: the message + digest -->
+    <div class="panel">
+      <h2>→ folded into the message you sign</h2>
+      <p style="color:var(--dim);font-size:12px;margin:0 0 8px">The SEE fields on the left are hashed into these commitments. BLIND groups simply aren't here.</p>
+      <div id="strip"></div>
+      <div class="digest"><div class="h">TapSighash digest — what your key actually signs:</div><div class="v mono" id="digest">…</div></div>
+      <div class="change"><div class="subttl">after you sign — locked vs open</div><ul id="changeList"></ul></div>
+      <div class="selftest" id="selftest"></div>
+    </div>
+  </div>
+
+  <div class="foot">Real BIP-341 computed in your browser (self-contained SHA-256, no network). Byte-verified against
+  <span class="mono">bitcoinutils</span> in <span class="mono">print_sighash_fields.py</span> (18/18 digests match).
+  Companion to the book <b>What a Signature Can See</b>.</div>
+</div>
+
+<script>
+/* ===================== VERIFIED COMPUTE CORE (do not edit) ===================== */
+function sha256(msg){
+  const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+  0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+  0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+  0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+  0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+  0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+  0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+  0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  let H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const l=msg.length; const bitLen=l*8; const withOne=l+1; const k=(56-(withOne%64)+64)%64; const total=withOne+k+8;
+  const m=new Uint8Array(total); m.set(msg); m[l]=0x80;
+  const hi=Math.floor(bitLen/0x100000000), lo=bitLen>>>0; const dv=new DataView(m.buffer);
+  dv.setUint32(total-8,hi); dv.setUint32(total-4,lo);
+  const w=new Uint32Array(64); const rotr=(x,n)=>(x>>>n)|(x<<(32-n));
+  for(let off=0;off<total;off+=64){
+    for(let i=0;i<16;i++) w[i]=dv.getUint32(off+i*4);
+    for(let i=16;i<64;i++){const s0=rotr(w[i-15],7)^rotr(w[i-15],18)^(w[i-15]>>>3);const s1=rotr(w[i-2],17)^rotr(w[i-2],19)^(w[i-2]>>>10);w[i]=(w[i-16]+s0+w[i-7]+s1)|0;}
+    let [a,b,c,d,e,f,g,h]=H;
+    for(let i=0;i<64;i++){const S1=rotr(e,6)^rotr(e,11)^rotr(e,25);const ch=(e&f)^(~e&g);const t1=(h+S1+ch+K[i]+w[i])|0;const S0=rotr(a,2)^rotr(a,13)^rotr(a,22);const maj=(a&b)^(a&c)^(b&c);const t2=(S0+maj)|0;h=g;g=f;f=e;e=(d+t1)|0;d=c;c=b;b=a;a=(t1+t2)|0;}
+    H=[(H[0]+a)|0,(H[1]+b)|0,(H[2]+c)|0,(H[3]+d)|0,(H[4]+e)|0,(H[5]+f)|0,(H[6]+g)|0,(H[7]+h)|0];
+  }
+  const out=new Uint8Array(32); const odv=new DataView(out.buffer); for(let i=0;i<8;i++) odv.setUint32(i*4,H[i]>>>0); return out;
+}
+const enc=new TextEncoder();
+function h2b(h){const a=new Uint8Array(h.length/2);for(let i=0;i<a.length;i++)a[i]=parseInt(h.substr(i*2,2),16);return a;}
+function b2h(b){return Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join('');}
+function cat(...arr){let n=0;for(const a of arr)n+=a.length;const o=new Uint8Array(n);let p=0;for(const a of arr){o.set(a,p);p+=a.length;}return o;}
+function u32le(n){const b=new Uint8Array(4);new DataView(b.buffer).setUint32(0,n>>>0,true);return b;}
+function i32le(n){return u32le(n);}
+function u64le(n){const b=new Uint8Array(8);const dv=new DataView(b.buffer);const bn=BigInt(n);dv.setUint32(0,Number(bn&0xffffffffn),true);dv.setUint32(4,Number((bn>>32n)&0xffffffffn),true);return b;}
+function csize(n){if(n<253)return new Uint8Array([n]);if(n<0x10000){const b=new Uint8Array(3);b[0]=0xfd;new DataView(b.buffer).setUint16(1,n,true);return b;}const b=new Uint8Array(5);b[0]=0xfe;new DataView(b.buffer).setUint32(1,n,true);return b;}
+function cscript(spk){return cat(csize(spk.length),spk);}
+function taggedHash(tag,msg){const t=sha256(enc.encode(tag));return sha256(cat(t,t,msg));}
+const SPK_A="5120"+"a1".repeat(32), SPK_B="5120"+"b2".repeat(32), SPK_IN0="5120"+"11".repeat(32), SPK_IN1="5120"+"22".repeat(32);
+const TXS={
+ 1:{version:2,locktime:0,vins:[{txid:"aa".repeat(32),vout:0,amount:100000,spk:SPK_IN0,seq:0xffffffff}],vouts:[{amount:95000,spk:SPK_A}]},
+ 2:{version:2,locktime:0,vins:[{txid:"aa".repeat(32),vout:0,amount:100000,spk:SPK_IN0,seq:0xffffffff},{txid:"cc".repeat(32),vout:1,amount:50000,spk:SPK_IN1,seq:0xffffffff}],vouts:[{amount:90000,spk:SPK_A},{amount:55000,spk:SPK_B}]}
+};
+const ALL=1,NONE=2,SINGLE=3,ACP=0x80;
+function sigmsgFields(tx,idx,ht){
+  const acp=(ht&ACP)!==0; let ot=ht&3; if(ot===0)ot=ALL; const F=[];
+  const add=(name,cn,bytes,inc,group,note="")=>F.push({name,cn,hex:b2h(bytes),bytes,inc,group,note});
+  add("epoch","纪元字节",new Uint8Array([0]),true,"head","BIP-341 prefix, always 0x00");
+  add("hash_type","签名类型",new Uint8Array([ht]),true,"head","the flag itself");
+  add("nVersion","版本",i32le(tx.version),true,"head","");
+  add("nLockTime","锁定时间",u32le(tx.locktime),true,"head","");
+  const incAllIn=!acp;
+  const prevouts=cat(...tx.vins.map(i=>cat(h2b(i.txid),u32le(i.vout))));
+  const amounts=cat(...tx.vins.map(i=>u64le(i.amount)));
+  const spks=cat(...tx.vins.map(i=>cscript(h2b(i.spk))));
+  const seqs=cat(...tx.vins.map(i=>u32le(i.seq)));
+  const acNote=incAllIn?"= SHA256 of all inputs' outpoints (left)":"ANYONECANPAY → dropped; only your own input below";
+  add("sha_prevouts","所有输入的来源",sha256(prevouts),incAllIn,"all_inputs",acNote);
+  add("sha_amounts","所有输入的金额",sha256(amounts),incAllIn,"all_inputs",incAllIn?"= SHA256 of all inputs' amounts":"");
+  add("sha_scriptpubkeys","所有输入的锁定脚本",sha256(spks),incAllIn,"all_inputs",incAllIn?"= SHA256 of all inputs' scripts":"");
+  add("sha_sequences","所有输入的 sequence",sha256(seqs),incAllIn,"all_inputs",incAllIn?"= SHA256 of all inputs' sequences":"");
+  const incOut=(ot===ALL);
+  const outputs=cat(...tx.vouts.map(o=>cat(u64le(o.amount),cscript(h2b(o.spk)))));
+  const outNote=incOut?"= SHA256 of ALL outputs (left)":(ot===NONE?"NONE → dropped; money can go anywhere":"SINGLE → dropped; only your paired row below");
+  add("sha_outputs","所有输出(整张账单)",sha256(outputs),incOut,"all_outputs",outNote);
+  add("spend_type","花费类型",new Uint8Array([0]),true,"mid","0 = keypath, no annex");
+  if(acp){const me=tx.vins[idx];
+    add("outpoint","我这个输入的来源",cat(h2b(me.txid),u32le(me.vout)),true,"this_input","only my own coin");
+    add("amount","我这个输入的金额",u64le(me.amount),true,"this_input","");
+    add("scriptPubKey","我这个输入的锁定脚本",cscript(h2b(me.spk)),true,"this_input","");
+    add("nSequence","我这个输入的 sequence",u32le(me.seq),true,"this_input","");
+  } else { add("input_index","我是第几个输入",u32le(idx),true,"this_input","just the index (full input set committed above)"); }
+  if(ot===SINGLE && idx<tx.vouts.length){const o=tx.vouts[idx];
+    add("sha_single_output","对着我那一行的输出",sha256(cat(u64le(o.amount),cscript(h2b(o.spk)))),true,"single","only your paired output row");}
+  return F;
+}
+function digestOf(tx,idx,ht){const F=sigmsgFields(tx,idx,ht);const msg=cat(...F.filter(f=>f.inc).map(f=>f.bytes));return b2h(taggedHash("TapSighash",msg));}
+/* ===================== END COMPUTE CORE ===================== */
+
+/* commit rules for the transaction view */
+function inputCommitted(k,idx,acp){return (!acp)||(k===idx);}
+function outputCommitted(k,idx,ot){if(ot===ALL)return true;if(ot===NONE)return false;return k===idx;}
+
+const S={ex:1,inIdx:0,out:ALL,acp:false};
+function flagValue(){return (S.out)|(S.acp?ACP:0);}
+function flagLabel(v){const base={1:"ALL",2:"NONE",3:"SINGLE"}[v&3];return (v&ACP)?`${base} | ANYONECANPAY`:`SIGHASH_${base}`;}
+const commas=n=>n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,",");
+function chip(cls,see,k,v){return `<div class="chip ${cls} ${see?'see':'blind'}"><span class="st">${see?'SEE 看':'BLIND 蒙'}</span><div class="k">${k}</div><div class="v mono">${v}</div></div>`;}
+
+function render(){
+  const tx=TXS[S.ex]; if(S.inIdx>=tx.vins.length)S.inIdx=0;
+  document.getElementById('whichInputWrap').style.display=(S.ex===2)?'block':'none';
+  const ht=flagValue(), acp=S.acp, ot=S.out;
+  document.getElementById('flagName').textContent=flagLabel(ht);
+  document.getElementById('flagHex').textContent=`0x${ht.toString(16).padStart(2,'0')}`;
+  document.getElementById('tamperBox').innerHTML='';
+
+  /* ---- transaction view ---- */
+  let tv=`<div class="txrow">
+    ${chip('f-ver',true,'nVersion',tx.version)}
+    ${chip('f-ver',true,'nLockTime',tx.locktime)}
+  </div>`;
+  tv+=`<div class="subttl">inputs — who pays</div>`;
+  tx.vins.forEach((i,k)=>{
+    const c=inputCommitted(k,S.inIdx,acp), me=(k===S.inIdx);
+    tv+=`<div class="card ${me?'me':''}"><div class="ttl">input ${k} ${me?'<span class="me-tag">← you are signing this</span>':''}<button class="tbtn" onclick="tamper('in',${k})">✎ tamper</button></div><div class="txrow">
+      ${chip('f-outpoint', me?true:c, 'outpoint', i.txid.slice(0,8)+'…:'+i.vout)}
+      ${chip('f-amount',  me?true:c, 'amount',   commas(i.amount)+' sat')}
+      ${chip('f-spk',     me?true:c, 'scriptPubKey', 'P2TR '+i.spk.slice(4,12)+'…')}
+      ${chip('f-seq',     me?true:c, 'nSequence','0x'+i.seq.toString(16))}
+    </div>${(!me&&!c)?'<div class="fold" style="color:var(--pink)">ANYONECANPAY → this input is blind to your signature: anyone could add/replace it</div>':''}</div>`;
+  });
+  tv+=`<div class="subttl">outputs — where the money goes</div>`;
+  tx.vouts.forEach((o,k)=>{
+    const c=outputCommitted(k,S.inIdx,ot), paired=(ot===SINGLE&&k===S.inIdx);
+    tv+=`<div class="card"><div class="ttl">output ${k} ${paired?'<span class="me-tag">← paired with your input</span>':''}<button class="tbtn" onclick="tamper('out',${k})">✎ tamper</button></div><div class="txrow">
+      ${chip('f-amount',c,'amount',commas(o.amount)+' sat')}
+      ${chip('f-ospk',c,'scriptPubKey','P2TR '+o.spk.slice(4,12)+'…')}
+    </div>${(!c)?`<div class="fold" style="color:var(--pink)">${ot===NONE?'NONE → blind: this output can be changed to anything':'SINGLE → blind: not your row; can be added/changed'}</div>`:''}</div>`;
+  });
+  document.getElementById('txView').innerHTML=tv;
+
+  /* ---- matrix ---- */
+  const cols=[["ALL",ALL],["NONE",NONE],["SINGLE",SINGLE]], rows=[["all inputs",false],["only mine (ACP)",true]];
+  let mt="<tr><th></th>"+cols.map(c=>`<th>${c[0]}</th>`).join("")+"</tr>";
+  for(const r of rows){mt+=`<tr><th>${r[0]}</th>`;for(const c of cols){const here=(S.out===c[1]&&S.acp===r[1]);mt+=`<td class="${here?'here':''}">${here?'◀':''}</td>`;}mt+="</tr>";}
+  document.getElementById('matrix').innerHTML=mt;
+
+  /* ---- message (preimage) ---- */
+  const F=sigmsgFields(tx,S.inIdx,ht);
+  const groups={head:"header",all_inputs:"commitment to ALL inputs",all_outputs:"commitment to ALL outputs",mid:"",this_input:"this input",single:"single paired output"};
+  let sv="",last=null;
+  for(const f of F){
+    if(f.group!==last&&groups[f.group]){sv+=`<div class="subttl">${groups[f.group]}</div>`;last=f.group;}
+    sv+=`<div class="field ${f.inc?'seen':'blind'}"><div class="badge ${f.inc?'seen':'blind'}">${f.inc?'看':'蒙'}</div>
+      <div class="fname"><b>${f.name}</b><span class="cn">${f.cn}</span></div>
+      <div><div class="fhex mono">${f.hex.length>32?f.hex.slice(0,32)+'…':f.hex}</div>${f.note?`<div class="fold">${f.note}</div>`:''}</div></div>`;
+  }
+  document.getElementById('strip').innerHTML=sv;
+  document.getElementById('digest').textContent=digestOf(tx,S.inIdx,ht);
+
+  /* ---- change list ---- */
+  let cl=`<li class="lock">🔒 locked: version, locktime, and your own input.</li>`;
+  cl+= acp?`<li class="open">🔓 open: <b>other inputs</b> — anyone can add or remove them.</li>`
+         :`<li class="lock">🔒 locked: the whole input set — nobody can add/remove an input.</li>`;
+  cl+= ot===ALL?`<li class="lock">🔒 locked: every output.</li>`
+     : ot===NONE?`<li class="open">🔓 open: <b>every output</b> — money can be redirected anywhere.</li>`
+     :`<li class="open">🔓 open: all outputs except your paired row #${S.inIdx}.</li>`;
+  document.getElementById('changeList').innerHTML=cl;
+}
+
+function tamper(kind,k){
+  const tx=TXS[S.ex], ht=flagValue();
+  const before=digestOf(tx,S.inIdx,ht);
+  const clone=JSON.parse(JSON.stringify(tx));
+  let what;
+  if(kind==='in'){clone.vins[k].amount+=1; what=`input ${k} amount ${commas(tx.vins[k].amount)} → ${commas(clone.vins[k].amount)} sat`;}
+  else {clone.vouts[k].amount+=1; what=`output ${k} amount ${commas(tx.vouts[k].amount)} → ${commas(clone.vouts[k].amount)} sat`;}
+  const after=digestOf(clone,S.inIdx,ht);
+  const same=(before===after);
+  document.getElementById('tamperBox').innerHTML=`<div class="tamper ${same?'ok':'bad'}">
+    <div class="tw">Someone changes this <i>after you signed</i>: <b>${what}</b></div>
+    <div class="td">digest before: <span class="mono">${before.slice(0,32)}…</span></div>
+    <div class="td">digest after:&nbsp; <span class="mono">${after.slice(0,32)}…</span></div>
+    <div class="tv">${same
+      ? '✓ digest UNCHANGED → this field was <b>BLIND (蒙)</b>. Your signature is still valid — the change is harmless, nobody needed your permission.'
+      : '✗ digest CHANGED → this field was <b>SEE (看)</b>. Your signature no longer matches — the transaction is now INVALID.'}</div>
+  </div>`;
+}
+function selftest(){
+  const cases=[[1,0,ALL,"63e5c52ee032870b76d1e127767f4e8a0e388bbb336d048ffa3af02440a91c5d"],
+    [1,0,SINGLE|ACP,"7d193bd7c955f721d4757831b080b833a775dfd476882a438b69b745cbae53e4"],
+    [2,0,ALL,"781880953371345bbb9922cf0bb2e3aabaecb53ead5261c2a9ef784748137465"],
+    [2,1,ALL,"d0a3e54e4fbff939a4cd2d439c09555807acc3ed965611af26ba2d6dd65a4bc8"]];
+  let allok=true, sha_ok=(b2h(sha256(enc.encode("abc")))==="ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+  for(const [ex,idx,ht,exp] of cases){if(digestOf(TXS[ex],idx,ht)!==exp)allok=false;}
+  document.getElementById('selftest').innerHTML=(sha_ok&&allok)
+    ?`<span class="ok">✓ self-test passed</span> — real BIP-341, byte-matches the bitcoinutils-verified values.`
+    :`<span class="bad">✗ self-test FAILED</span> — do not trust these bytes.`;
+}
+function bindSeg(id,fn){const el=document.getElementById(id);if(!el)return;el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;[...el.querySelectorAll('button')].forEach(x=>x.classList.remove('on'));b.classList.add('on');fn(b);render();});}
+bindSeg('segEx',b=>{S.ex=+b.dataset.ex;S.inIdx=0;});
+bindSeg('segIn',b=>{S.inIdx=+b.dataset.in;});
+bindSeg('segOut',b=>{S.out=+b.dataset.out;});
+document.getElementById('acp').addEventListener('change',e=>{S.acp=e.target.checked;render();});
+selftest(); render();
+</script>
+</body>
+</html>

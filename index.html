@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>What a Signature Can See · 签名能看见什么</title>
+<meta name="description" content="How the conditions of a Bitcoin payment are defined — a Feynman-style idea-book with an interactive SIGHASH playground you can actually touch."/>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--fg:#e6edf3;--dim:#8b949e;--accent:#58a6ff;--seen:#2ea043;--pink:#db61a2}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:820px;margin:0 auto;padding:56px 20px 90px}
+  h1{font-size:30px;margin:0 0 6px} h1 .cn{color:var(--dim);font-size:19px;font-weight:400}
+  .thesis{color:var(--dim);font-size:17px;margin:0 0 30px}
+  .thesis b.s{color:var(--seen)} .thesis b.b{color:var(--pink)}
+  .cta{display:inline-block;background:var(--accent);color:#0d1117;font-weight:700;font-size:16px;text-decoration:none;padding:13px 22px;border-radius:9px}
+  .cta:hover{filter:brightness(1.08)}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:34px 0}
+  @media(max-width:640px){.cards{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:16px 18px;text-decoration:none;color:var(--fg);display:block}
+  .card:hover{border-color:var(--accent)}
+  .card h3{margin:0 0 4px;font-size:15px} .card p{margin:0;color:var(--dim);font-size:13px}
+  .card .cn{color:var(--dim);font-weight:400;font-size:13px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:34px 0 10px;border-top:1px solid var(--line);padding-top:22px}
+  a.lnk{color:var(--accent);text-decoration:none} a.lnk:hover{text-decoration:underline}
+  .reading{color:var(--dim);font-size:14px;line-height:2}
+  .foot{color:var(--dim);font-size:13px;margin-top:34px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>What a Signature Can See <span class="cn">· 签名能看见什么</span></h1>
+  <p class="thesis">A Bitcoin signature doesn't sign the transaction. It signs a <i>message</i> — the sighash — assembled
+  from only the fields its flag chooses to <b class="s">SEE (看)</b>. Everything left <b class="b">BLIND (蒙)</b>,
+  anyone can change after you sign. A Feynman-style idea-book, from a dinner table to a wall — with a playground you can touch.</p>
+
+  <a class="cta" href="./sighash-playground/">▶ Open the SIGHASH playground</a>
+
+  <div class="cards">
+    <a class="card" href="./sighash-playground/">
+      <h3>🎛 Interactive playground</h3>
+      <p>Turn the two sighash dials, watch every field go SEE or BLIND on a real transaction, and <b>tamper</b> a field to prove it. Real BIP-341, no network.</p></a>
+    <a class="card" href="./MANUSCRIPT_EN.md">
+      <h3>📖 The book <span class="cn">· English</span></h3>
+      <p>Nine short chapters: a dinner → the paper-strip → covenants → can you see your neighbour's note? → the wall.</p></a>
+    <a class="card" href="./MANUSCRIPT_CN.md">
+      <h3>📖 小册子 <span class="cn">· 中文</span></h3>
+      <p>九章:一顿饭 → sighash 纸带 → 爸爸的纸条 → 看得见邻座的纸条吗 → 那堵墙。</p></a>
+    <a class="card" href="./APPENDIX_A_strip_game_CN.md">
+      <h3>✂️ 纸条游戏 <span class="cn">· print &amp; play</span></h3>
+      <p>用纸和剪刀做出来、和孩子一起玩的实体游戏——全书七关。孩子玩明白 = 写成功。</p></a>
+  </div>
+
+  <h2>Read on</h2>
+  <div class="reading">
+    Technical blog posts: <a class="lnk" href="./sighash-playground/blog/blog1_what_a_signature_signs.md">What a Bitcoin Signature Actually Signs</a> ·
+    <a class="lnk" href="./sighash-playground/blog/blog2_when_two_signatures_collide.md">When Two Signatures Collide</a><br/>
+    Companion signet series: <a class="lnk" href="https://medium.com/@aaron.recompile">medium.com/@aaron.recompile</a><br/>
+    Specs: <a class="lnk" href="https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki">BIP-341</a> ·
+    <a class="lnk" href="https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki">BIP-143</a> ·
+    runs on <a class="lnk" href="https://github.com/bitcoin-inquisition/bitcoin">Bitcoin Inquisition</a>
+  </div>
+
+  <div class="foot">Byte-verified against <span style="font-family:monospace">bitcoinutils</span> (18/18 sighash digests match). Text © the author · code MIT.</div>
+</div>
+</body>
+</html>

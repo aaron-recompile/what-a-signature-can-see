@@ -1,5 +1,7 @@
 # What a Signature Can See · 签名能看见什么
 
+### 🔗 Live: **[sighash.bitcoincoding.dev](https://sighash.bitcoincoding.dev)** — read the book & play with the interactive SIGHASH playground
+
 **How the conditions of a Bitcoin payment are defined — a Feynman-style idea-book, with an interactive playground you can actually touch.**
 
 A Bitcoin signature doesn't sign "the transaction." It signs a *message* — the sighash — assembled from only the fields its flag chooses to **SEE (看)**. Everything left **BLIND (蒙)**, anyone can change after you sign. This little book walks from a dinner table to the exact edge of what a signature can commit to; the playground lets you flip the dials and watch the bytes.

@@ -404,7 +404,7 @@ All of the author's public writing: <https://medium.com/@aaron.recompile>
 
 ---
 
-*v0.1 complete. English edition; Chinese edition in `MANUSCRIPT_CN.md`. Companion playground and code under `sighash-playground/`.*
+*v0.1 complete. English edition. Companion playground and code under `sighash-playground/`.*
 *The body carries zero code and zero internal references; every further resource — opcode deep-dives, BIPs, on-chain transactions — is a public link, in Appendices B / C / D.*
 
 ---

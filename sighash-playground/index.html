@@ -78,10 +78,10 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>What a Signature Can See <span class="cn">· 签名能看见什么 · the SIGHASH playground</span></h1>
+  <h1>What a Signature Can See <span class="cn">· the SIGHASH playground</span></h1>
   <p class="sub">Here is a whole Bitcoin transaction, laid out field by field (Sparrow-style). A signature does not
-  cover all of it. Your <b>sighash flag</b> decides which fields the signature <b style="color:var(--seen)">SEES (看)</b>
-  — commits to — and which it leaves <b style="color:var(--pink)">BLIND (蒙)</b>. Blind fields can be changed by anyone
+  cover all of it. Your <b>sighash flag</b> decides which fields the signature <b style="color:var(--seen)">SEES</b>
+  — commits to — and which it leaves <b style="color:var(--pink)">BLIND</b>. Blind fields can be changed by anyone
   after you sign. Flip the dials and watch the transaction grey out. The 32-byte digest on the right is the real
   message your key signs.</p>
 
@@ -100,7 +100,7 @@
       <div class="toggle"><input type="checkbox" id="acp"/><span>ANYONECANPAY</span></div>
     </div>
     <div><label>flag</label><br/><span class="flag" id="flagName">SIGHASH_ALL</span> <span class="mono" id="flagHex" style="color:var(--dim)">0x01</span></div>
-    <div class="legend"><b class="see">SEE 看</b> = committed (change it → signature dies) · <b class="blind">BLIND 蒙</b> = not committed (anyone can change it)</div>
+    <div class="legend"><b class="see">SEE</b> = committed (change it → signature dies) · <b class="blind">BLIND</b> = not committed (anyone can change it)</div>
   </div>
 
   <div class="cols">
@@ -174,33 +174,33 @@ const ALL=1,NONE=2,SINGLE=3,ACP=0x80;
 function sigmsgFields(tx,idx,ht){
   const acp=(ht&ACP)!==0; let ot=ht&3; if(ot===0)ot=ALL; const F=[];
   const add=(name,cn,bytes,inc,group,note="")=>F.push({name,cn,hex:b2h(bytes),bytes,inc,group,note});
-  add("epoch","纪元字节",new Uint8Array([0]),true,"head","BIP-341 prefix, always 0x00");
-  add("hash_type","签名类型",new Uint8Array([ht]),true,"head","the flag itself");
-  add("nVersion","版本",i32le(tx.version),true,"head","");
-  add("nLockTime","锁定时间",u32le(tx.locktime),true,"head","");
+  add("epoch","epoch byte",new Uint8Array([0]),true,"head","BIP-341 prefix, always 0x00");
+  add("hash_type","sighash type",new Uint8Array([ht]),true,"head","the flag itself");
+  add("nVersion","version",i32le(tx.version),true,"head","");
+  add("nLockTime","lock time",u32le(tx.locktime),true,"head","");
   const incAllIn=!acp;
   const prevouts=cat(...tx.vins.map(i=>cat(h2b(i.txid),u32le(i.vout))));
   const amounts=cat(...tx.vins.map(i=>u64le(i.amount)));
   const spks=cat(...tx.vins.map(i=>cscript(h2b(i.spk))));
   const seqs=cat(...tx.vins.map(i=>u32le(i.seq)));
   const acNote=incAllIn?"= SHA256 of all inputs' outpoints (left)":"ANYONECANPAY → dropped; only your own input below";
-  add("sha_prevouts","所有输入的来源",sha256(prevouts),incAllIn,"all_inputs",acNote);
-  add("sha_amounts","所有输入的金额",sha256(amounts),incAllIn,"all_inputs",incAllIn?"= SHA256 of all inputs' amounts":"");
-  add("sha_scriptpubkeys","所有输入的锁定脚本",sha256(spks),incAllIn,"all_inputs",incAllIn?"= SHA256 of all inputs' scripts":"");
-  add("sha_sequences","所有输入的 sequence",sha256(seqs),incAllIn,"all_inputs",incAllIn?"= SHA256 of all inputs' sequences":"");
+  add("sha_prevouts","where all inputs come from",sha256(prevouts),incAllIn,"all_inputs",acNote);
+  add("sha_amounts","amounts of all inputs",sha256(amounts),incAllIn,"all_inputs",incAllIn?"= SHA256 of all inputs' amounts":"");
+  add("sha_scriptpubkeys","locking scripts of all inputs",sha256(spks),incAllIn,"all_inputs",incAllIn?"= SHA256 of all inputs' scripts":"");
+  add("sha_sequences","sequences of all inputs",sha256(seqs),incAllIn,"all_inputs",incAllIn?"= SHA256 of all inputs' sequences":"");
   const incOut=(ot===ALL);
   const outputs=cat(...tx.vouts.map(o=>cat(u64le(o.amount),cscript(h2b(o.spk)))));
   const outNote=incOut?"= SHA256 of ALL outputs (left)":(ot===NONE?"NONE → dropped; money can go anywhere":"SINGLE → dropped; only your paired row below");
-  add("sha_outputs","所有输出(整张账单)",sha256(outputs),incOut,"all_outputs",outNote);
-  add("spend_type","花费类型",new Uint8Array([0]),true,"mid","0 = keypath, no annex");
+  add("sha_outputs","all outputs (the whole bill)",sha256(outputs),incOut,"all_outputs",outNote);
+  add("spend_type","spend type",new Uint8Array([0]),true,"mid","0 = keypath, no annex");
   if(acp){const me=tx.vins[idx];
-    add("outpoint","我这个输入的来源",cat(h2b(me.txid),u32le(me.vout)),true,"this_input","only my own coin");
-    add("amount","我这个输入的金额",u64le(me.amount),true,"this_input","");
-    add("scriptPubKey","我这个输入的锁定脚本",cscript(h2b(me.spk)),true,"this_input","");
-    add("nSequence","我这个输入的 sequence",u32le(me.seq),true,"this_input","");
-  } else { add("input_index","我是第几个输入",u32le(idx),true,"this_input","just the index (full input set committed above)"); }
+    add("outpoint","where my input comes from",cat(h2b(me.txid),u32le(me.vout)),true,"this_input","only my own coin");
+    add("amount","my input's amount",u64le(me.amount),true,"this_input","");
+    add("scriptPubKey","my input's locking script",cscript(h2b(me.spk)),true,"this_input","");
+    add("nSequence","my input's sequence",u32le(me.seq),true,"this_input","");
+  } else { add("input_index","which input I am",u32le(idx),true,"this_input","just the index (full input set committed above)"); }
   if(ot===SINGLE && idx<tx.vouts.length){const o=tx.vouts[idx];
-    add("sha_single_output","对着我那一行的输出",sha256(cat(u64le(o.amount),cscript(h2b(o.spk)))),true,"single","only your paired output row");}
+    add("sha_single_output","the output on my row",sha256(cat(u64le(o.amount),cscript(h2b(o.spk)))),true,"single","only your paired output row");}
   return F;
 }
 function digestOf(tx,idx,ht){const F=sigmsgFields(tx,idx,ht);const msg=cat(...F.filter(f=>f.inc).map(f=>f.bytes));return b2h(taggedHash("TapSighash",msg));}
@@ -214,7 +214,7 @@ const S={ex:1,inIdx:0,out:ALL,acp:false};
 function flagValue(){return (S.out)|(S.acp?ACP:0);}
 function flagLabel(v){const base={1:"ALL",2:"NONE",3:"SINGLE"}[v&3];return (v&ACP)?`${base} | ANYONECANPAY`:`SIGHASH_${base}`;}
 const commas=n=>n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,",");
-function chip(cls,see,k,v){return `<div class="chip ${cls} ${see?'see':'blind'}"><span class="st">${see?'SEE 看':'BLIND 蒙'}</span><div class="k">${k}</div><div class="v mono">${v}</div></div>`;}
+function chip(cls,see,k,v){return `<div class="chip ${cls} ${see?'see':'blind'}"><span class="st">${see?'SEE':'BLIND'}</span><div class="k">${k}</div><div class="v mono">${v}</div></div>`;}
 
 function render(){
   const tx=TXS[S.ex]; if(S.inIdx>=tx.vins.length)S.inIdx=0;
@@ -261,7 +261,7 @@ function render(){
   let sv="",last=null;
   for(const f of F){
     if(f.group!==last&&groups[f.group]){sv+=`<div class="subttl">${groups[f.group]}</div>`;last=f.group;}
-    sv+=`<div class="field ${f.inc?'seen':'blind'}"><div class="badge ${f.inc?'seen':'blind'}">${f.inc?'看':'蒙'}</div>
+    sv+=`<div class="field ${f.inc?'seen':'blind'}"><div class="badge ${f.inc?'seen':'blind'}">${f.inc?'SEE':'BLIND'}</div>
       <div class="fname"><b>${f.name}</b><span class="cn">${f.cn}</span></div>
       <div><div class="fhex mono">${f.hex.length>32?f.hex.slice(0,32)+'…':f.hex}</div>${f.note?`<div class="fold">${f.note}</div>`:''}</div></div>`;
   }
@@ -292,8 +292,8 @@ function tamper(kind,k){
     <div class="td">digest before: <span class="mono">${before.slice(0,32)}…</span></div>
     <div class="td">digest after:&nbsp; <span class="mono">${after.slice(0,32)}…</span></div>
     <div class="tv">${same
-      ? '✓ digest UNCHANGED → this field was <b>BLIND (蒙)</b>. Your signature is still valid — the change is harmless, nobody needed your permission.'
-      : '✗ digest CHANGED → this field was <b>SEE (看)</b>. Your signature no longer matches — the transaction is now INVALID.'}</div>
+      ? '✓ digest UNCHANGED → this field was <b>BLIND</b>. Your signature is still valid — the change is harmless, nobody needed your permission.'
+      : '✗ digest CHANGED → this field was <b>SEE</b>. Your signature no longer matches — the transaction is now INVALID.'}</div>
   </div>`;
 }
 function selftest(){

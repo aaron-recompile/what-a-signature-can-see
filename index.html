@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>What a Signature Can See · 签名能看见什么</title>
+<title>What a Signature Can See</title>
 <meta name="description" content="How the conditions of a Bitcoin payment are defined — a Feynman-style idea-book with an interactive SIGHASH playground you can actually touch."/>
 <meta name="author" content="Aaron Zhang"/>
 <meta name="keywords" content="Bitcoin, sighash, SIGHASH, BIP-341, Taproot, signature, ANYONECANPAY, SIGHASH_SINGLE, SIGHASH_ANYPREVOUT, transaction malleability, covenant, Aaron Zhang, Mastering Taproot"/>
@@ -17,7 +17,7 @@
 <meta name="twitter:title" content="What a Signature Can See"/>
 <meta name="twitter:description" content="Play with the sighash dials — watch which transaction fields a Bitcoin signature actually commits to. Real BIP-341, no wallet."/>
 <meta name="twitter:image" content="https://sighash.bitcoincoding.dev/aaron-profile.png"/>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"What a Signature Can See","url":"https://sighash.bitcoincoding.dev/","description":"How the conditions of a Bitcoin payment are defined — a Feynman-style idea-book with an interactive SIGHASH playground.","inLanguage":["en","zh"],"author":{"@type":"Person","name":"Aaron Zhang","url":"https://medium.com/@aaron.recompile"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"What a Signature Can See","url":"https://sighash.bitcoincoding.dev/","description":"How the conditions of a Bitcoin payment are defined — a Feynman-style idea-book with an interactive SIGHASH playground.","inLanguage":"en","author":{"@type":"Person","name":"Aaron Zhang","url":"https://medium.com/@aaron.recompile"}}</script>
 <style>
   :root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--fg:#e6edf3;--dim:#8b949e;--accent:#58a6ff;--seen:#2ea043;--pink:#db61a2}
   *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
@@ -52,9 +52,9 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>What a Signature Can See <span class="cn">· 签名能看见什么</span></h1>
+  <h1>What a Signature Can See</h1>
   <p class="thesis">A Bitcoin signature doesn't sign the transaction. It signs a <i>message</i> — the sighash — assembled
-  from only the fields its flag chooses to <b class="s">SEE (看)</b>. Everything left <b class="b">BLIND (蒙)</b>,
+  from only the fields its flag chooses to <b class="s">SEE</b>. Everything left <b class="b">BLIND</b>,
   anyone can change after you sign. A Feynman-style idea-book, from a dinner table to a wall — with a playground you can touch.</p>
 
   <a class="cta" href="./sighash-playground/">▶ Open the SIGHASH playground</a>
@@ -64,14 +64,8 @@
       <h3>🎛 Interactive playground</h3>
       <p>Turn the two sighash dials, watch every field go SEE or BLIND on a real transaction, and <b>tamper</b> a field to prove it. Real BIP-341, no network.</p></a>
     <a class="card" href="./book-en.html">
-      <h3>📖 The book <span class="cn">· English</span></h3>
+      <h3>📖 The book</h3>
       <p>Nine short chapters: a dinner → the paper-strip → covenants → can you see your neighbour's note? → the wall.</p></a>
-    <a class="card" href="./book-cn.html">
-      <h3>📖 小册子 <span class="cn">· 中文</span></h3>
-      <p>九章:一顿饭 → sighash 纸带 → 爸爸的纸条 → 看得见邻座的纸条吗 → 那堵墙。</p></a>
-    <a class="card" href="./game-cn.html">
-      <h3>✂️ 纸条游戏 <span class="cn">· print &amp; play</span></h3>
-      <p>用纸和剪刀做出来、和孩子一起玩的实体游戏——全书七关。孩子玩明白 = 写成功。</p></a>
   </div>
 
   <h2>Read on</h2>

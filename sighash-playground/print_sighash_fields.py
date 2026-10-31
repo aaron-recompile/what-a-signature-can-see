@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 """
-print_sighash_fields.py — 费曼式 sighash 字段打印器
+print_sighash_fields.py — a Feynman-style sighash field printer
 =====================================================
-把"签名到底签的是什么"(BIP-341 TapSighash 的 SigMsg)一个字段一个字段打印出来,
-并演示每个 sighash flag 到底"看见(commit)"哪些字段、"蒙住(不 commit)"哪些字段。
-单输入 → 多输入两个例子。
+Prints "what a signature actually signs" (the SigMsg of BIP-341 TapSighash) field
+by field, and shows which fields each sighash flag SEES (commits to) and which it
+leaves BLIND (does not commit to). Two examples: single input → multiple inputs.
 
-这份代码是自洽的(只用 hashlib 手搓 BIP-341),同时用 bitcoinutils 当"正确性预言机"
-交叉验证:手搓的 digest 必须逐字节等于 bitcoinutils 算的。跑通 = 布局绝对正确,网页
-(index.html) 就镜像这套字节。
+The code is self-contained (BIP-341 hand-rolled with hashlib only), and uses
+bitcoinutils as a "correctness oracle" for cross-checking: the hand-rolled digest
+must equal the one bitcoinutils computes, byte for byte. If it passes, the layout
+is correct, and the web page (index.html) mirrors exactly these bytes.
 
-跑:  python3 print_sighash_fields.py
-纯字段打印任何 python3 都能跑;末尾的 bitcoinutils 交叉验证需要 `pip install bitcoinutils`
-(缺了会自动跳过,不影响打印)。
+Run:  python3 print_sighash_fields.py
+The field printing runs on any python3; the bitcoinutils cross-check at the end
+needs `pip install bitcoinutils` (skipped automatically if missing; printing is
+unaffected).
 """
 import hashlib, struct
 
-# ----------------------------------------------------------------- 序列化原语
+# ----------------------------------------------------------------- serialization primitives
 def sha256(b): return hashlib.sha256(b).digest()
 
 def tagged_hash(tag, msg):
@@ -33,12 +35,12 @@ def compact_size(n):
     if n < 0x100000000: return b"\xfe" + struct.pack("<I", n)
     return b"\xff" + struct.pack("<Q", n)
 
-def cscript(spk):  # scriptPubKey 带长度前缀
+def cscript(spk):  # scriptPubKey with length prefix
     return compact_size(len(spk)) + spk
 
 def hx(b): return b.hex()
 
-# sighash flag 常量
+# sighash flag constants
 SIGHASH_DEFAULT = 0x00
 SIGHASH_ALL = 0x01
 SIGHASH_NONE = 0x02
@@ -46,10 +48,10 @@ SIGHASH_SINGLE = 0x03
 SIGHASH_ANYONECANPAY = 0x80
 
 
-# ----------------------------------------------------------------- 交易模型
+# ----------------------------------------------------------------- transaction model
 class TxIn:
     def __init__(self, txid_hex_internal, vout, amount, spk_hex, seq=0xFFFFFFFF):
-        # txid_hex_internal: 32 字节的内部序列化顺序 (即区块浏览器显示的反转)
+        # txid_hex_internal: 32 bytes in internal serialization order (the reverse of what block explorers display)
         self.txid = bytes.fromhex(txid_hex_internal)
         assert len(self.txid) == 32
         self.vout = vout
@@ -72,68 +74,70 @@ class Tx:
         self.vouts = vouts
 
 
-# --------------------------------------------- BIP-341 SigMsg 逐字段组装
+# --------------------------------------------- BIP-341 SigMsg, assembled field by field
 def sigmsg_fields(tx, input_index, hash_type):
-    """返回一个有序字段列表: 每项 = dict(name, cn, bytes, included, group, note)。
-    included=False 的字段不进 digest,代表"这格你蒙住了、没签,别人能改"。"""
+    """Return an ordered list of fields: each item = dict(name, cn, bytes, included, group, note).
+    (`cn` is a short plain-language label for the field.)
+    Fields with included=False do not go into the digest: "you left this cell BLIND,
+    you didn't sign it, others can change it"."""
     anyonecanpay = (hash_type & SIGHASH_ANYONECANPAY) != 0
     out_type = hash_type & 0x03
-    if out_type == 0:  # SIGHASH_DEFAULT 的输出语义 = ALL
+    if out_type == 0:  # SIGHASH_DEFAULT has the same output semantics as ALL
         out_type = SIGHASH_ALL
 
     F = []
     def add(name, cn, data, included, group, note=""):
         F.append({"name": name, "cn": cn, "bytes": data, "included": included, "group": group, "note": note})
 
-    # 0. epoch (0x00) — 永远
-    add("epoch", "纪元字节", b"\x00", True, "head", "BIP-341 前缀,恒为 0x00")
-    # 1. hash_type — 永远 (值随 flag 变)
-    add("hash_type", "签名类型", bytes([hash_type]), True, "head", "你选的 flag 本身")
-    # 2. nVersion — 永远
-    add("nVersion", "版本", i32(tx.version), True, "head", "")
-    # 3. nLockTime — 永远
-    add("nLockTime", "锁定时间", u32(tx.locktime), True, "head", "")
+    # 0. epoch (0x00) — always
+    add("epoch", "epoch byte", b"\x00", True, "head", "BIP-341 prefix, always 0x00")
+    # 1. hash_type — always (value changes with the flag)
+    add("hash_type", "sighash type", bytes([hash_type]), True, "head", "the flag you chose")
+    # 2. nVersion — always
+    add("nVersion", "version", i32(tx.version), True, "head", "")
+    # 3. nLockTime — always
+    add("nLockTime", "lock time", u32(tx.locktime), True, "head", "")
 
-    # ---- 看见所有输入的承诺 (仅当 NOT ANYONECANPAY) ----
+    # ---- commitments that SEE all inputs (only when NOT ANYONECANPAY) ----
     inc_all_inputs = not anyonecanpay
     sha_prevouts = sha256(b"".join(i.outpoint() for i in tx.vins))
     sha_amounts = sha256(b"".join(u64(i.amount) for i in tx.vins))
     sha_spks = sha256(b"".join(cscript(i.spk) for i in tx.vins))
     sha_seqs = sha256(b"".join(u32(i.seq) for i in tx.vins))
-    note_ac = "" if inc_all_inputs else "ANYONECANPAY → 蒙住:你看不见别的输入了,别人能加/换输入"
-    add("sha_prevouts", "所有输入的来源(prevouts)", sha_prevouts, inc_all_inputs, "all_inputs", note_ac)
-    add("sha_amounts", "所有输入的金额", sha_amounts, inc_all_inputs, "all_inputs", "")
-    add("sha_scriptpubkeys", "所有输入的锁定脚本", sha_spks, inc_all_inputs, "all_inputs", "")
-    add("sha_sequences", "所有输入的 sequence", sha_seqs, inc_all_inputs, "all_inputs", "")
+    note_ac = "" if inc_all_inputs else "ANYONECANPAY → BLIND: you can't see the other inputs; others can add/swap inputs"
+    add("sha_prevouts", "where all inputs come from (prevouts)", sha_prevouts, inc_all_inputs, "all_inputs", note_ac)
+    add("sha_amounts", "amounts of all inputs", sha_amounts, inc_all_inputs, "all_inputs", "")
+    add("sha_scriptpubkeys", "locking scripts of all inputs", sha_spks, inc_all_inputs, "all_inputs", "")
+    add("sha_sequences", "sequences of all inputs", sha_seqs, inc_all_inputs, "all_inputs", "")
 
-    # ---- 看见所有输出 (仅当 out_type == ALL) ----
+    # ---- SEE all outputs (only when out_type == ALL) ----
     inc_outputs = (out_type == SIGHASH_ALL)
     sha_outputs = sha256(b"".join(o.serialize() for o in tx.vouts))
-    note_out = "" if inc_outputs else ("NONE → 蒙住:钱去哪你全不管" if out_type == SIGHASH_NONE
-                                       else "SINGLE → 蒙住整体输出,只认对着你那一行(见下)")
-    add("sha_outputs", "所有输出(整张账单)", sha_outputs, inc_outputs, "all_outputs", note_out)
+    note_out = "" if inc_outputs else ("NONE → BLIND: you don't care at all where the money goes" if out_type == SIGHASH_NONE
+                                       else "SINGLE → the outputs as a whole are BLIND; only the row paired with you counts (see below)")
+    add("sha_outputs", "all outputs (the whole bill)", sha_outputs, inc_outputs, "all_outputs", note_out)
 
-    # ---- spend_type — 永远 ----
-    add("spend_type", "花费类型", b"\x00", True, "mid", "0=keypath 无 annex")
+    # ---- spend_type — always ----
+    add("spend_type", "spend type", b"\x00", True, "mid", "0 = keypath, no annex")
 
-    # ---- 输入侧:ANYONECANPAY 时放"我这个输入"的明细;否则放 input_index ----
+    # ---- input side: with ANYONECANPAY, include the details of "my input"; otherwise just input_index ----
     if anyonecanpay:
         me = tx.vins[input_index]
-        add("outpoint", "我这个输入的来源", me.outpoint(), True, "this_input",
-            "ANYONECANPAY → 只承诺我自己这枚币")
-        add("amount", "我这个输入的金额", u64(me.amount), True, "this_input", "")
-        add("scriptPubKey", "我这个输入的锁定脚本", cscript(me.spk), True, "this_input", "")
-        add("nSequence", "我这个输入的 sequence", u32(me.seq), True, "this_input", "")
+        add("outpoint", "where my input comes from", me.outpoint(), True, "this_input",
+            "ANYONECANPAY → commits only to my own coin")
+        add("amount", "my input's amount", u64(me.amount), True, "this_input", "")
+        add("scriptPubKey", "my input's locking script", cscript(me.spk), True, "this_input", "")
+        add("nSequence", "my input's sequence", u32(me.seq), True, "this_input", "")
     else:
-        add("input_index", "我是第几个输入", u32(input_index), True, "this_input",
-            "不 ANYONECANPAY → 只记序号(承诺整套输入已在上面)")
+        add("input_index", "which input I am", u32(input_index), True, "this_input",
+            "not ANYONECANPAY → just the index (the full input set is committed above)")
 
-    # ---- SINGLE:只认对着我那一行输出 ----
+    # ---- SINGLE: only the output row paired with me counts ----
     inc_single = (out_type == SIGHASH_SINGLE)
     if inc_single and input_index < len(tx.vouts):
         sha_single = sha256(tx.vouts[input_index].serialize())
-        add("sha_single_output", "对着我那一行的输出", sha_single, True, "single",
-            "SINGLE → 只锁我对应那一行,别的输出行随便加/改")
+        add("sha_single_output", "the output on my row", sha_single, True, "single",
+            "SINGLE → locks only my paired row; other output rows can be added/changed freely")
 
     return F
 
@@ -144,7 +148,7 @@ def compute_digest(tx, input_index, hash_type):
     return tagged_hash("TapSighash", msg)
 
 
-# ----------------------------------------------------------------- 打印
+# ----------------------------------------------------------------- printing
 FLAGS = [
     ("SIGHASH_ALL           ", SIGHASH_ALL),
     ("SIGHASH_NONE          ", SIGHASH_NONE),
@@ -157,14 +161,14 @@ FLAGS = [
 def print_example(title, tx, input_index):
     print("=" * 78)
     print(title)
-    print(f"(为第 {input_index} 个输入签名; 交易有 {len(tx.vins)} 个输入 / {len(tx.vouts)} 个输出)")
+    print(f"(signing input {input_index}; the transaction has {len(tx.vins)} input(s) / {len(tx.vouts)} output(s))")
     print("=" * 78)
-    # 用 SIGHASH_ALL 展示完整字段布局 + 看/蒙
+    # show the full field layout + SEE/BLIND with SIGHASH_ALL
     for label, ht in [("SIGHASH_ALL", SIGHASH_ALL), ("SINGLE | ANYONECANPAY", SIGHASH_SINGLE | SIGHASH_ANYONECANPAY)]:
-        print(f"\n--- flag = {label} (0x{ht:02x}) —— 签名到底签了哪些字段 ---")
+        print(f"\n--- flag = {label} (0x{ht:02x}) —— which fields does the signature actually sign ---")
         F = sigmsg_fields(tx, input_index, ht)
         for f in F:
-            mark = "👁 看" if f["included"] else "🙈 蒙"
+            mark = "👁 SEE  " if f["included"] else "🙈 BLIND"
             b = f["bytes"]
             shown = hx(b) if len(b) <= 40 else hx(b[:36]) + "…"
             line = f"  {mark}  {f['name']:<18} {shown}"
@@ -174,14 +178,14 @@ def print_example(title, tx, input_index):
         d = tagged_hash("TapSighash", b"".join(x["bytes"] for x in F if x["included"]))
         print(f"  => TapSighash digest = {hx(d)}")
 
-    # 六种 flag 的 digest 一览 (看它们互不相同 = 签的是不同内容)
-    print(f"\n--- 六种 flag 各自的 TapSighash digest (为 input {input_index}) ---")
+    # digests of all six flags at a glance (all different = each signs different content)
+    print(f"\n--- TapSighash digest for each of the six flags (input {input_index}) ---")
     for label, ht in FLAGS:
         print(f"  {label} 0x{ht:02x}  {hx(compute_digest(tx, input_index, ht))}")
 
 
 def cross_check(tx, input_index):
-    """用 bitcoinutils 当预言机, 验证手搓 digest 逐字节正确。"""
+    """Use bitcoinutils as an oracle to verify the hand-rolled digest byte for byte."""
     try:
         from bitcoinutils.setup import setup
         from bitcoinutils.transactions import Transaction, TxInput, TxOutput
@@ -190,7 +194,7 @@ def cross_check(tx, input_index):
     except Exception as e:
         print(f"\n[cross-check skipped: bitcoinutils not available: {e}]")
         return
-    bu_ins = [TxInput(i.txid[::-1].hex(), i.vout) for i in tx.vins]  # bitcoinutils 用显示序(反转)
+    bu_ins = [TxInput(i.txid[::-1].hex(), i.vout) for i in tx.vins]  # bitcoinutils uses display order (reversed)
     for k, i in enumerate(tx.vins):
         bu_ins[k].sequence = struct.pack("<I", i.seq)
     bu_outs = [TxOutput(o.amount, Script.from_raw(o.spk.hex())) for o in tx.vouts]
@@ -207,12 +211,12 @@ def cross_check(tx, input_index):
         match = (mine == theirs)
         ok = ok and match
         print(f"  {label} 0x{ht:02x}  {'✅ match' if match else '❌ MISMATCH'}")
-    print("  => ALL MATCH ✅ 手搓布局正确, 网页可镜像" if ok else "  => 有 MISMATCH ❌ 需修")
+    print("  => ALL MATCH ✅ hand-rolled layout is correct; the web page can mirror it" if ok else "  => MISMATCH ❌ needs fixing")
     return ok
 
 
-# ----------------------------------------------------------------- 样例交易
-# P2TR scriptPubKey = 5120 + 32字节x-only-key
+# ----------------------------------------------------------------- sample transactions
+# P2TR scriptPubKey = 5120 + 32-byte x-only key
 SPK_A = "5120" + "a1" * 32
 SPK_B = "5120" + "b2" * 32
 SPK_IN0 = "5120" + "11" * 32
@@ -232,12 +236,12 @@ def two_input_tx():
 
 if __name__ == "__main__":
     t1 = single_input_tx()
-    print_example("例 1 · 单输入", t1, 0)
+    print_example("Example 1 · single input", t1, 0)
     cross_check(t1, 0)
 
     print()
     t2 = two_input_tx()
-    print_example("例 2 · 多输入 (为 input 0 签)", t2, 0)
+    print_example("Example 2 · multiple inputs (signing input 0)", t2, 0)
     cross_check(t2, 0)
-    print_example("例 2 · 多输入 (为 input 1 签)", t2, 1)
+    print_example("Example 2 · multiple inputs (signing input 1)", t2, 1)
     cross_check(t2, 1)

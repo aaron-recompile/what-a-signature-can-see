@@ -9,11 +9,17 @@ import subprocess, os, html
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+EN_TITLE = "What a Signature Can See"
+
 # (source md, output html, page title, path-to-home)
+# A title of None means "use the first '# ' heading of the source file"; this
+# keeps the Chinese edition's titles out of this script. English pages get an
+# English-only topbar; Chinese-edition pages (source name ending in _CN.md)
+# keep a bilingual "EN · CN" topbar.
 DOCS = [
     ("MANUSCRIPT_EN.md", "book-en.html", "What a Signature Can See — the book", "./"),
-    ("MANUSCRIPT_CN.md", "book-cn.html", "签名能看见什么 — 小册子", "./"),
-    ("APPENDIX_A_strip_game_CN.md", "game-cn.html", "纸条游戏 — 附录 A", "./"),
+    ("MANUSCRIPT_CN.md", "book-cn.html", None, "./"),
+    ("APPENDIX_A_strip_game_CN.md", "game-cn.html", None, "./"),
     ("sighash-playground/blog/blog1_what_a_signature_signs.md",
      "sighash-playground/blog/blog1.html", "What a Bitcoin Signature Actually Signs", "../../"),
     ("sighash-playground/blog/blog2_when_two_signatures_collide.md",
@@ -52,8 +58,21 @@ ul,ol{padding-left:24px}
 .foot{color:var(--dim);font-size:13px;margin-top:40px;border-top:1px solid var(--line);padding-top:16px}
 """
 
+def first_h1(src):
+    with open(os.path.join(HERE, src), encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("# "):
+                return line[2:].strip()
+    return EN_TITLE
+
 def render(src, out, title, home):
     src_path = os.path.join(HERE, src)
+    if title is None:
+        title = first_h1(src)
+    if src.endswith("_CN.md"):
+        topbar = f"{EN_TITLE} · {first_h1('MANUSCRIPT_CN.md')}"
+    else:
+        topbar = EN_TITLE
     body = subprocess.run(
         ["pandoc", "-f", "gfm", "-t", "html5", "--no-highlight", src_path],
         capture_output=True, text=True, check=True).stdout
@@ -66,7 +85,7 @@ def render(src, out, title, home):
 <style>{CSS}</style>
 </head>
 <body>
-<div class="topbar">← <a href="{home}">What a Signature Can See · 签名能看见什么</a></div>
+<div class="topbar">← <a href="{home}">{html.escape(topbar, quote=False)}</a></div>
 <main>
 {body}
 <div class="foot">Part of <a href="{home}">What a Signature Can See</a> · try the <a href="{home}sighash-playground/">interactive playground</a>.</div>

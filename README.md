@@ -1,10 +1,10 @@
-# What a Signature Can See · 签名能看见什么
+# What a Signature Can See
 
 ### 🔗 Live: **[sighash.bitcoincoding.dev](https://sighash.bitcoincoding.dev)** — read the book & play with the interactive SIGHASH playground
 
 **How the conditions of a Bitcoin payment are defined — a Feynman-style idea-book, with an interactive playground you can actually touch.**
 
-A Bitcoin signature doesn't sign "the transaction." It signs a *message* — the sighash — assembled from only the fields its flag chooses to **SEE (看)**. Everything left **BLIND (蒙)**, anyone can change after you sign. This little book walks from a dinner table to the exact edge of what a signature can commit to; the playground lets you flip the dials and watch the bytes.
+A Bitcoin signature doesn't sign "the transaction." It signs a *message* — the sighash — assembled from only the fields its flag chooses to **SEE**. Everything left **BLIND**, anyone can change after you sign. This little book walks from a dinner table to the exact edge of what a signature can commit to; the playground lets you flip the dials and watch the bytes.
 
 There is very little written about the sighash message, and even less code that just *prints it out*. So this repo does both — and everything is byte-verified against a production library.
 
@@ -14,8 +14,7 @@ There is very little written about the sighash message, and even less code that 
 
 | | |
 |---|---|
-| **`MANUSCRIPT_EN.md` / `MANUSCRIPT_CN.md`** | The book (English / 中文). Nine short chapters: a dinner → the paper-strip → covenants → *can you see your neighbour's note?* → copying it by hand → the wall. |
-| **`APPENDIX_A_strip_game_CN.md`** | A print-and-play paper game — build it with paper and scissors, play it with a kid. The whole book, as seven levels. |
+| **`MANUSCRIPT_EN.md`** | The book. Nine short chapters: a dinner → the paper-strip → covenants → *can you see your neighbour's note?* → copying it by hand → the wall. |
 | **`sighash-playground/index.html`** | **The interactive playground.** A whole transaction laid out Sparrow-style; turn the two sighash dials and watch each field go SEE or BLIND; hit **✎ tamper** on any field to prove that changing a BLIND field is harmless and changing a SEE field kills your signature. Real BIP-341, self-contained SHA-256, **no network** — just open the file. |
 | **`sighash-playground/print_sighash_fields.py`** | A Feynman-style field printer: single- → multi-input, the sighash message printed field by field, cross-checked byte-for-byte against `bitcoinutils`. |
 | **`sighash-playground/blog/`** | Two technical blog drafts (*What a Bitcoin Signature Actually Signs* · *When Two Signatures Collide*). |
